@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.file.*;
 
 public class ClientHandler extends Thread {
@@ -72,11 +73,19 @@ public class ClientHandler extends Thread {
     private void handleMessages() {
         try {
             while (true) {
-                Message m = (Message) in.readObject();
-                if (m.isFile()) {
-                    uploadFile(m);
-                } else if (m.isCommand()) {
-                    doCommand(m);
+                try {
+                    if (!socket.isClosed()) {
+                        Message m = (Message) in.readObject();
+                        if (m.isFile()) {
+                            uploadFile(m);
+                        } else if (m.isCommand()) {
+                            doCommand(m);
+                        }
+                    } else {
+                        break;
+                    }
+                } catch (SocketException e) {
+                    break;
                 }
             }
         } catch (IOException | ClassNotFoundException e) {
@@ -168,7 +177,6 @@ public class ClientHandler extends Thread {
                 Answer answer = new Answer(FILE_NAME_ERROR);
                 out.writeObject(answer);
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -238,8 +246,8 @@ public class ClientHandler extends Thread {
     }
 
     private void delete(Command c) {
-        DeleteCommand dc = (DeleteCommand) c;
         try {
+            DeleteCommand dc = (DeleteCommand) c;
             Path path = Paths.get(currentDirectoryPath + "/" + dc.getName());
             if (Files.exists(path)) {
                 if (Files.isDirectory(path)) {

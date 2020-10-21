@@ -32,8 +32,12 @@ public class Client {
     private final static String AUTH_OK = "Вы успешно авторизировались";
     private final static String AUTH_ERROR = "Произошла ошибка при авторизации, попробуйте еще раз";
     private final static String REG_LOGIN_USED = "Данный логин занят";
-    private final static String REG_OK = "Вы успешно зарегестрировались";
+    private final static String REG_OK = "Вы успешно зарегестрировались. Пожалуйста, авторизуйтесь";
     private final static String REG_ERROR = "Произошла ошибка при регистрации, попробуйте еще раз";
+    private final static String WRONG_COMMAND = "Некоректный запрос";
+    private final static String WRONG_COMMAND_STYLE = "Не правильные аргументы команды. Для просмотра доступных комманд введите " + HELP;
+    private final static String FILE_DOWNLOADED = "Файл скачан!";
+    private final static String NO_FILE = "Такого файла нет. Проверьте путь до файла";
 
     private final static String AUTH_COMMAND = "/auth";
     private final static String REG_COMMAND = "/reg";
@@ -78,7 +82,7 @@ public class Client {
                     } else if (command.startsWith(REG_COMMAND)) {
                         sendRegCommand(command);
                     } else {
-                        System.out.println("Некоректный запрос");
+                        System.out.println(WRONG_COMMAND);
                     }
                 }
             }
@@ -114,48 +118,46 @@ public class Client {
     }
 
     private void handleInputMessages() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    while (true) {
-                        Message m = (Message) in.readObject();
-                        if (m.isAnswer()) {
-                            Answer a = (Answer) m;
-                            if (a.isAuth()) {
-                                if (a.getContent().equals(AuthStatus.NO_LOGIN.toString())) {
-                                    System.out.println(AUTH_NO_LOGIN);
-                                } else if (a.getContent().equals(AuthStatus.INCORRECT_PASSWORD.toString())) {
-                                    System.out.println(AUTH_INCORRECT_PASSWORD);
-                                } else if (a.getContent().equals(AuthStatus.OK.toString())) {
-                                    System.out.println(AUTH_OK);
-                                    isAuth = true;
-                                } else {
-                                    System.out.println(AUTH_ERROR);
-                                }
-                            } else if (a.isReg()) {
-                                if (a.getContent().equals(RegStatus.LOGIN_USED.toString())) {
-                                    System.out.println(REG_LOGIN_USED);
-                                } else if (a.getContent().equals(RegStatus.OK.toString())) {
-                                    System.out.println(REG_OK);
-                                } else {
-                                    System.out.println(REG_ERROR);
-                                }
+        new Thread(() -> {
+            try {
+                while (true) {
+                    Message m = (Message) in.readObject();
+                    if (m.isAnswer()) {
+                        Answer a = (Answer) m;
+                        String content = a.getContent();
+                        if (a.isAuth()) {
+                            if (content.equals(AuthStatus.NO_LOGIN.toString())) {
+                                System.out.println(AUTH_NO_LOGIN);
+                            } else if (content.equals(AuthStatus.INCORRECT_PASSWORD.toString())) {
+                                System.out.println(AUTH_INCORRECT_PASSWORD);
+                            } else if (content.equals(AuthStatus.OK.toString())) {
+                                System.out.println(AUTH_OK);
+                                isAuth = true;
                             } else {
-                                System.out.println(a);
+                                System.out.println(AUTH_ERROR);
                             }
-                        } else if (m.isFile()) {
-                            TempFileMessage tmp = (TempFileMessage) m;
-                            String pathString = (tmp.getSavePath() + "/" + tmp.getFileName()).replace("\\", "/");
-                            Path path = Paths.get(pathString);
-                            Files.createDirectories(path.getParent());
-                            Files.write(path, tmp.getBytes());
-                            System.out.println("Файл скачан!");
+                        } else if (a.isReg()) {
+                            if (content.equals(RegStatus.LOGIN_USED.toString())) {
+                                System.out.println(REG_LOGIN_USED);
+                            } else if (content.equals(RegStatus.OK.toString())) {
+                                System.out.println(REG_OK);
+                            } else {
+                                System.out.println(REG_ERROR);
+                            }
+                        } else {
+                            System.out.println(a);
                         }
+                    } else if (m.isFile()) {
+                        TempFileMessage tmp = (TempFileMessage) m;
+                        String pathString = (tmp.getSavePath() + "/" + tmp.getFileName()).replace("\\", "/");
+                        Path path = Paths.get(pathString);
+                        Files.createDirectories(path.getParent());
+                        Files.write(path, tmp.getBytes());
+                        System.out.println(FILE_DOWNLOADED);
                     }
-                } catch (IOException | ClassNotFoundException e) {
-                    e.printStackTrace();
                 }
+            } catch (IOException | ClassNotFoundException e) {
+                e.printStackTrace();
             }
         }).start();
     }
@@ -171,7 +173,7 @@ public class Client {
             } else if (command.startsWith("/")) {
                 sendCommand(command);
             } else {
-                System.out.println("Некоректный запрос");
+                System.out.println(WRONG_COMMAND);
             }
         }
 
@@ -185,7 +187,7 @@ public class Client {
                 TempFileMessage tmp = new TempFileMessage(path);
                 out.writeObject(tmp);
             } else {
-                System.out.println("Такого файла нет");
+                System.out.println(NO_FILE);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -218,7 +220,7 @@ public class Client {
                 System.out.println(HELP_MESSAGE);
                 break;
             default:
-                System.out.println("Некоректный запрос");
+                System.out.println(WRONG_COMMAND);
                 break;
         }
     }
@@ -231,6 +233,8 @@ public class Client {
             out.writeObject(dfc);
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println(WRONG_COMMAND_STYLE);
         }
     }
 
@@ -240,6 +244,8 @@ public class Client {
             out.writeObject(new CreateDirCommand(dirName));
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println(WRONG_COMMAND_STYLE);
         }
     }
 
@@ -249,6 +255,8 @@ public class Client {
             out.writeObject(new DeleteCommand(name));
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println(WRONG_COMMAND_STYLE);
         }
     }
 
@@ -266,6 +274,8 @@ public class Client {
             out.writeObject(new GoToDirCommand(dir));
         } catch (IOException e) {
             e.printStackTrace();
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println(WRONG_COMMAND_STYLE);
         }
     }
 
